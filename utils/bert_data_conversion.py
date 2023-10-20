@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import numpy as np
 
 
@@ -28,7 +29,7 @@ def convert_lines(example, max_seq_length, tokenizer):
     max_seq_length -= 2
     all_tokens = []
     longer = 0
-    for text in example:
+    for text in tqdm(example):
         tokens_a = tokenizer.tokenize(text)
         if len(tokens_a) > max_seq_length:
             tokens_a = tokens_a[:max_seq_length]
