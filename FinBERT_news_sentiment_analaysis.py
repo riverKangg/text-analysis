@@ -1,12 +1,13 @@
+import os
+import warnings
 import pandas as pd
 import yfinance as yf
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from finbert.finbert.finbert import predict
-import warnings
-import os
 from datetime import datetime
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-# 경고 무시
+from finbert.finbert.finbert import predict
+
+
 warnings.filterwarnings('ignore')
 
 # FinBERT 모델 및 토크나이저 불러오기
