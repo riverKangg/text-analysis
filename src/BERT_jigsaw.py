@@ -10,9 +10,9 @@ from transformers import get_linear_schedule_with_warmup
 from utils import *
 
 # 경로 및 상수 설정
-INPUT_DIR = "./input/"
-DATA_DIR = './data/jigsaw/'
-OUTPUT_DIR = './output/jigsaw/'
+INPUT_DIR = "../input/"
+DATA_DIR = '../data/jigsaw/'
+OUTPUT_DIR = '../output/jigsaw/'
 os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 

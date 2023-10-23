@@ -34,7 +34,7 @@ for ticker in ticker_list:
         news_df = pd.concat([news_df, sentiment_result])
 
 # 결과를 저장할 디렉토리 및 파일 이름 생성
-output_dir = './output/news_sentiment_analysis/'
+output_dir = '../../output/news_sentiment_analysis/'
 os.makedirs(output_dir, exist_ok=True)
 timestamp = datetime.now().strftime('%y%m%d')
 output_file = f'{output_dir}/news_sentiment_analysis_{timestamp}.csv'
