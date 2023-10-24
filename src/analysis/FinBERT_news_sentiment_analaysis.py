@@ -7,7 +7,6 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from finbert.finbert.finbert import predict
 
-
 warnings.filterwarnings('ignore')
 
 # FinBERT 모델 및 토크나이저 불러오기
