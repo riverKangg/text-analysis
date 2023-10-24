@@ -84,7 +84,6 @@ model = BertForSequenceClassification.from_pretrained(MODEL_NAME, cache_dir=None
 device = torch.device("cpu")
 model.to(device)
 
-model.zero_grad()
 param_optimizer = list(model.named_parameters())
 no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
 optimizer_grouped_parameters = [
