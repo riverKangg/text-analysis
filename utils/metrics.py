@@ -6,6 +6,7 @@ SUBGROUP_AUC = 'subgroup_auc'
 BPSN_AUC = 'bpsn_auc'  # stands for background positive, subgroup negative
 BNSP_AUC = 'bnsp_auc'  # stands for background negative, subgroup positive
 
+
 def calculate_overall_auc(df, MODEL_NAME, TARGET_COL):
     true_labels = df[TARGET_COL] > 0.5
     predicted_labels = df[MODEL_NAME]
@@ -24,6 +25,7 @@ def get_final_metric(bias_df, overall_auc, POWER=-5, OVERALL_MODEL_WEIGHT=0.25):
         power_mean(bias_df[BNSP_AUC], POWER)
     ])
     return (OVERALL_MODEL_WEIGHT * overall_auc) + ((1 - OVERALL_MODEL_WEIGHT) * bias_score)
+
 
 def compute_auc(y_true, y_pred):
     try:

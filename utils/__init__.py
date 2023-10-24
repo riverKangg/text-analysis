@@ -1,2 +1,2 @@
-from .metrics_utils import *
+from .metrics import *
 from .bert_data_conversion import *
