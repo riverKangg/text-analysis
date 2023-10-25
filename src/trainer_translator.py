@@ -1,15 +1,10 @@
 from utils import *
 import pandas as pd
-import datasets
 import torch
-from torch.utils.data import Dataset
-
-from torch.utils.data import TensorDataset
-
+from torch.utils.data import Dataset, DataLoader
+from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
 import torch.nn.functional as F
-from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler, TensorDataset)
-from transformers import MBart50TokenizerFast, MBartForConditionalGeneration, AdamW, get_linear_schedule_with_warmup, \
-    TrainingArguments, Trainer
+from transformers import MBart50TokenizerFast, MBartForConditionalGeneration, AdamW, get_linear_schedule_with_warmup
 
 # Model Setting
 model_name = "facebook/mbart-large-50-many-to-many-mmt"
@@ -18,37 +13,38 @@ model = MBartForConditionalGeneration.from_pretrained(model_name)
 device = torch.device("mps")
 model.to(device)
 
-# Make dataset
+# Read Data
 data_dir = './data/aihub-ko-en'
 col_list = ['data_set', 'domain', 'subdomain', 'ko', 'mt', 'en', 'source_language', 'target_language']
 train = pd.read_csv(f'{data_dir}/1113_social_train_set_1210529.csv', usecols=col_list, nrows=300)
-train.rename(columns={'en': 'source', 'ko': 'target'}, inplace=True)
-
-# train_dataset = {}
-# for i in range(len(train)):
-#     tokens = tokenizer(train['source'].tolist()[i], text_target=train['target'].tolist()[i], max_length=1024,
-#                        truncation=True, padding="max_length", return_tensors="pt")
-#     train_dataset[i] = tokens
-
-train_tokens = tokenizer(train['source'].tolist(), text_target=train['target'].tolist(), max_length=1024,
-                         truncation=True, padding="max_length", return_tensors="pt")
-
 valid = pd.read_csv(f'{data_dir}/1113_social_valid_set_151316.csv', usecols=col_list)
-valid.rename(columns={'en': 'source', 'ko': 'target'}, inplace=True)
-eval_tokens = tokenizer(train['source'].tolist(), text_target=train['target'].tolist(),
-                        padding=True, truncation=True, max_length=512, return_tensors="pt")
 
-# Make input tensor
-train_dataset = datasets.DatasetDict({'input_ids': train_tokens['input_ids'],
-                                      'attention_mask': train_tokens['attention_mask'],
-                                      'labels': train_tokens['labels']})
-eval_dataset = datasets.DatasetDict({'input_ids': eval_tokens['input_ids'].tolist(),
-                                     'attention_mask': eval_tokens['attention_mask'].tolist(),
-                                     'labels': eval_tokens['labels'].tolist()})
+# Preprocessing Data
+class CustomDataset(Dataset):
+    def __init__(self, input_tensors, attention_tensors, label_tensors):
+        self.input_tensors = input_tensors
+        self.attention_tensors = attention_tensors
+        self.label_tensors = label_tensors
+
+    def __len__(self):
+        return len(self.input_tensors)
+
+    def __getitem__(self, index):
+        input_data = self.input_tensors[index]
+        attention_data = self.attention_tensors[index]
+        label_data = self.label_tensors[index]
+        return input_data, attention_data, label_data
+
+
+train_tokens = tokenizer(train['ko'].tolist(), text_target=train['en'].tolist(), max_length=128,
+                         truncation=True, padding="max_length", return_tensors="pt")
+train_dataset = CustomDataset(train_tokens['input_ids'], train_tokens['attention_mask'], train_tokens['labels'])
+
+eval_tokens = tokenizer(train['ko'].tolist(), text_target=train['en'].tolist(),
+                        padding=True, truncation=True, max_length=128, return_tensors="pt")
+eval_dataset = CustomDataset(eval_tokens['input_ids'], eval_tokens['attention_mask'], eval_tokens['labels'])
 
 # Training Arguments 정의
-from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
-
 args = Seq2SeqTrainingArguments(
     output_dir="./model",
     per_device_train_batch_size=8,
@@ -59,6 +55,13 @@ args = Seq2SeqTrainingArguments(
     num_train_epochs=3,
 )
 
+batch_size = 64
+data_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+# data_loader를 이용하여 데이터를 반복적으로 가져올 수 있음
+for batch in data_loader:
+    input_data = batch["input"]
+    label_data = batch["label"]
 # Trainer 생성
 trainer = Seq2SeqTrainer(
     model=model,
