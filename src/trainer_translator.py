@@ -4,17 +4,24 @@ import torch
 import evaluate
 import torch.nn.functional as F
 from datasets import load_dataset, load_metric
+import datasets
 from datasets import Dataset
 from torch.utils.data import DataLoader
 from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
-from transformers import MBart50TokenizerFast, MBartForConditionalGeneration, AdamW, get_linear_schedule_with_warmup, \
-    DataCollatorForSeq2Seq
+from datasets.features.translation import Translation, TranslationVariableLanguages
+from transformers import DataCollatorForSeq2Seq, MBart50TokenizerFast, MBartForConditionalGeneration
+
+# MBart50TokenizerFast, MBartForConditionalGeneration, AdamW, get_linear_schedule_with_warmup, \
+
 
 # Model Setting
 model_name = "facebook/mbart-large-50-many-to-many-mmt"
+# model_name = "facebook/nllb-200-distilled-600M"
 
 # load Tokenizer
 tokenizer = MBart50TokenizerFast.from_pretrained(model_name, src_lang="en_XX", tgt_lang="ko_KR")
+
+# tokenizer = MBart50TokenizerFast.from_pretrained(model_name, src_lang="en_XX", tgt_lang="ko_KR")
 # tokenizer("Hello, this one sentence!")
 # # {'input_ids': [250004, 35378, 4, 903, 1632, 149357, 38, 2], 'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1]}
 # tokenizer(["Hello, this one sentence!", "This is another sentence."])
@@ -24,6 +31,7 @@ tokenizer = MBart50TokenizerFast.from_pretrained(model_name, src_lang="en_XX", t
 # # {'input_ids': [[250014, 35378, 4, 903, 1632, 149357, 38, 2], [250014, 3293, 83, 15700, 149357, 5, 2]], 'attention_mask': [[1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1]]}
 
 model = MBartForConditionalGeneration.from_pretrained(model_name)
+# model = MBartForConditionalGeneration.from_pretrained(model_name)
 device = torch.device("mps")
 model.to(device)
 
@@ -37,15 +45,10 @@ metric = evaluate.load('bleu')  # load_metric("sacrebleu")
 # 'translation_length': 3, 'reference_length': 3}
 
 # Read Data
-data_dir = './data/aihub-ko-en'
-# Make dataset
-train = pd.read_csv(f'{data_dir}/1113_social_train_set_1210529.csv', usecols=['ko', 'en'])
-train['translation'] = [{'en': x, 'ko': y} for x, y in zip(train['en'], train['ko'])]
-trainset = Dataset.from_pandas(train[['translation']], split="train")
-
-valid = pd.read_csv(f'{data_dir}/1113_social_valid_set_151316.csv', usecols=['ko', 'en'])
-valid['translation'] = [{'en': x, 'ko': y} for x, y in zip(valid['en'], valid['ko'])]
-validset = Dataset.from_pandas(valid[['translation']])
+# Read Dataset from huggingface Dataset
+data = datasets.load_dataset("riverkangg/aihub-ko-en-translation-socsci", 'train')
+data = datasets.load_dataset("riverkangg/aihub-ko-en-translation-socsci", 'validation')
+data = data.cast_column('translation', Translation(languages=['en', 'ko']))
 
 
 # Make model input
@@ -55,32 +58,29 @@ def preprocess_function(examples, source_lang="en", target_lang="ko"):
     tokens = tokenizer(inputs, text_target=targets, max_length=128,
                        truncation=True, padding="max_length", return_tensors="pt")
 
-    model_inputs = Dataset.from_dict({'input_ids': tokens['input_ids'],
-                                      'attention_mask': tokens['attention_mask'],
-                                      'labels': tokens['labels']})
-
-    return model_inputs
+    return tokens
 
 
-print(preprocess_function(trainset[:1]))
-
-train_tokenized = preprocess_function(trainset[:100])
-valid_tokenized = preprocess_function(validset[:10])
+print(preprocess_function(data['train'][:1]))
+tokenized_datasets = data.map(preprocess_function, batched=True)
+# train_tokenized = preprocess_function(data['train'])
+# valid_tokenized = preprocess_function(data['validation'])
 
 # Training Arguments 정의
-batch_size = 16
-source_lang = "en"
-target_lang = "ko"
+batch_size = 1
+source_lang = 'en'
+target_lang = 'ko'
 args = Seq2SeqTrainingArguments(
-    f"MBART-finetuned-{source_lang}-to-{target_lang}",
+    f"mbart-finetuned-{source_lang}-to-{target_lang}",
     evaluation_strategy="epoch",
-    learning_rate=2e-5,
+    learning_rate=0.1,
     per_device_train_batch_size=batch_size,
     per_device_eval_batch_size=batch_size,
     weight_decay=0.01,
     save_total_limit=3,
     num_train_epochs=1,
     predict_with_generate=True,
+    # fp16=True,
     # push_to_hub=True,
 )
 
@@ -121,9 +121,11 @@ trainer = Seq2SeqTrainer(
     model=model,
     args=args,
     data_collator=data_collator,
-    train_dataset=train_tokenized,
-    eval_dataset=valid_tokenized,
+    train_dataset=tokenized_datasets['train'],
+    eval_dataset=tokenized_datasets['validation'],
     compute_metrics=compute_metrics,
 )
 
 trainer.train()
+trainer.save_model()
+trainer.push_to_hub()
