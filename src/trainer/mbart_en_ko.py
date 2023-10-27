@@ -1,17 +1,10 @@
 from utils import *
-import pandas as pd
 import torch
 import evaluate
-import torch.nn.functional as F
-from datasets import load_dataset, load_metric
 import datasets
-from datasets import Dataset
-from torch.utils.data import DataLoader
 from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
-from datasets.features.translation import Translation, TranslationVariableLanguages
+from datasets.features.translation import Translation
 from transformers import DataCollatorForSeq2Seq, MBart50TokenizerFast, MBartForConditionalGeneration
-
-# MBart50TokenizerFast, MBartForConditionalGeneration, AdamW, get_linear_schedule_with_warmup, \
 
 
 # Model Setting
@@ -125,7 +118,7 @@ trainer = Seq2SeqTrainer(
     eval_dataset=tokenized_datasets['validation'],
     compute_metrics=compute_metrics,
 )
-
+PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
 trainer.train()
 trainer.save_model()
 trainer.push_to_hub()
