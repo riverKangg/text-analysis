@@ -93,7 +93,7 @@ optimizer_grouped_parameters = [
 
 EPOCHS = 1
 lr = 2e-5
-batch_size = 10
+batch_size = 64
 accumulation_steps = 2
 num_train_optimization_steps = int(EPOCHS * len(X) / batch_size / accumulation_steps)
 
