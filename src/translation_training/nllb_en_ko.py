@@ -4,38 +4,20 @@ import evaluate
 import datasets
 from transformers import Seq2SeqTrainer, Seq2SeqTrainingArguments
 from datasets.features.translation import Translation
-from transformers import DataCollatorForSeq2Seq, MBart50TokenizerFast, MBartForConditionalGeneration
-
+from transformers import DataCollatorForSeq2Seq, NllbTokenizer, M2M100ForConditionalGeneration
 
 # Model Setting
-model_name = "facebook/mbart-large-50-many-to-many-mmt"
-# model_name = "facebook/nllb-200-distilled-600M"
+model_name = "facebook/nllb-200-distilled-600M"
 
 # load Tokenizer
-tokenizer = MBart50TokenizerFast.from_pretrained(model_name, src_lang="en_XX", tgt_lang="ko_KR")
+tokenizer = NllbTokenizer.from_pretrained(model_name)
 
-# tokenizer = MBart50TokenizerFast.from_pretrained(model_name, src_lang="en_XX", tgt_lang="ko_KR")
-# tokenizer("Hello, this one sentence!")
-# # {'input_ids': [250004, 35378, 4, 903, 1632, 149357, 38, 2], 'attention_mask': [1, 1, 1, 1, 1, 1, 1, 1]}
-# tokenizer(["Hello, this one sentence!", "This is another sentence."])
-# # {'input_ids': [[250004, 35378, 4, 903, 1632, 149357, 38, 2], [250004, 3293, 83, 15700, 149357, 5, 2]], 'attention_mask': [[1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1]]}
-# with tokenizer.as_target_tokenizer():
-#     print(tokenizer(["Hello, this one sentence!", "This is another sentence."]))
-# # {'input_ids': [[250014, 35378, 4, 903, 1632, 149357, 38, 2], [250014, 3293, 83, 15700, 149357, 5, 2]], 'attention_mask': [[1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1]]}
-
-model = MBartForConditionalGeneration.from_pretrained(model_name)
-# model = MBartForConditionalGeneration.from_pretrained(model_name)
+model = M2M100ForConditionalGeneration.from_pretrained(model_name)
 device = torch.device("mps")
 model.to(device)
 
 # load metric
-metric = evaluate.load('bleu')  # load_metric("sacrebleu")
-# check metric
-# fake_preds = ["hello there", "안녕"]
-# fake_labels = [["hello there"], ["안녕"]]
-# metric.compute(predictions=fake_preds, references=fake_labels)
-# {'bleu': 0.0, 'precisions': [1.0, 1.0, 0.0, 0.0], 'brevity_penalty': 1.0, 'length_ratio': 1.0,
-# 'translation_length': 3, 'reference_length': 3}
+metric = evaluate.load('bleu')
 
 # Read Data
 # Read Dataset from huggingface Dataset
@@ -54,10 +36,7 @@ def preprocess_function(examples, source_lang="en", target_lang="ko"):
     return tokens
 
 
-print(preprocess_function(data['train'][:1]))
 tokenized_datasets = data.map(preprocess_function, batched=True)
-# train_tokenized = preprocess_function(data['train'])
-# valid_tokenized = preprocess_function(data['validation'])
 
 # Training Arguments 정의
 batch_size = 1
@@ -118,7 +97,6 @@ trainer = Seq2SeqTrainer(
     eval_dataset=tokenized_datasets['validation'],
     compute_metrics=compute_metrics,
 )
-PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0
 trainer.train()
 trainer.save_model()
 trainer.push_to_hub()
